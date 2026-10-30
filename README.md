@@ -2,8 +2,6 @@
 
 Blog cá nhân — web security, CTF writeups. Dựng bằng Jekyll, GitHub Pages build sẵn.
 
-Nền là `img/bg.gif`, giữ lại từ bản `my-blog` cũ.
-
 ## Viết bài mới
 
 Tạo file `_posts/YYYY-MM-DD-ten-bai.md`:
