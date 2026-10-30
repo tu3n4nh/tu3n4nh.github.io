@@ -2,6 +2,7 @@
 layout: page
 single: true
 title: About
+permalink: /about.html
 description: Về tu3n4nh — web security, CTF.
 ---
 
