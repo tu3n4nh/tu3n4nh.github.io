@@ -1,0 +1,32 @@
+title: tu3n4nh
+tagline: From KCSC with luv
+description: web security, CTF writeups và những ghi chú lặt vặt
+url: https://tu3n4nh.github.io
+author: tu3n4nh
+
+permalink: /posts/:title.html
+markdown: kramdown
+
+kramdown:
+  input: GFM
+  hard_wrap: false
+  syntax_highlighter: rouge
+
+plugins: []
+
+defaults:
+  - scope:
+      path: ""
+      type: posts
+    values:
+      layout: post
+  - scope:
+      path: ""
+      type: pages
+    values:
+      layout: page
+
+exclude:
+  - README.md
+  - Gemfile
+  - Gemfile.lock

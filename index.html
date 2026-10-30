@@ -1,120 +1,41 @@
-<!DOCTYPE html>
-<html lang="vi">
+---
+layout: default
+title: null
+description: tu3n4nh — web security, CTF writeups và những ghi chú lặt vặt.
+permalink: /index.html
+---
+<section class="card">
+  <div class="page-head">
+    <p class="eyebrow">~/home</p>
+    <h1>From KCSC with luv</h1>
+  </div>
+  <p>
+    Chào bạn, mình là <strong>tu3n4nh</strong>. Đây là chỗ mình viết lại những challenge đã làm,
+    những lỗi đã gặp và cách khai thác chúng — chủ yếu là web security và CTF.
+  </p>
+  <p>
+    Nếu bạn tìm thấy ở đây một payload dùng được, thì mục đích của blog đã đạt rồi.
+  </p>
+</section>
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>tu3n4nh — From KCSC with luv</title>
-  <meta name="description" content="tu3n4nh — web security, CTF writeups và những ghi chú lặt vặt.">
-  <meta name="theme-color" content="#0b0f0d">
+<section class="card">
+  <div class="page-head">
+    <p class="eyebrow">~/posts</p>
+    <h2 style="border:0;padding:0;margin:0;font-size:1.35rem;">Bài viết</h2>
+  </div>
 
-  <meta property="og:type" content="website">
-  <meta property="og:title" content="tu3n4nh — From KCSC with luv">
-  <meta property="og:description" content="web security, CTF writeups và những ghi chú lặt vặt.">
-  <meta property="og:image" content="https://tu3n4nh.github.io/img/avatar.jpg">
-
-  <link rel="icon" type="image/jpeg" href="./img/avatar.jpg">
-  <link rel="stylesheet" href="./assets/css/style.css?v=2">
-</head>
-
-<body>
-
-  <header class="topbar">
-    <div class="topbar__inner">
-      <a class="brand" href="./index.html">tu3n4nh<span>_</span></a>
-      <nav class="nav" aria-label="Điều hướng chính">
-        <a href="./index.html" aria-current="page">Blog</a>
-        <a href="./about.html">About</a>
-        <a href="https://github.com/tu3n4nh" target="_blank" rel="noopener">GitHub</a>
-      </nav>
-    </div>
-  </header>
-
-  <main class="shell">
-
-    <aside class="profile">
-      <div class="profile__head">
-        <img class="avatar" src="./img/avatar.jpg" width="52" height="52" alt="avatar của tu3n4nh">
-        <div>
-          <a class="profile__name" href="./index.html">tu3n4nh</a>
-          <p class="profile__tag">From KCSC with luv</p>
+  <ul class="post-list">
+    {% for post in site.posts %}
+    <li>
+      <a class="post-item" href="{{ post.url }}">
+        <h3 class="post-item__title">{{ post.title }}</h3>
+        <p class="post-item__excerpt">{{ post.description | default: post.excerpt | strip_html | truncate: 150 }}</p>
+        <div class="meta">
+          <time datetime="{{ post.date | date_to_xmlschema }}">{{ post.date | date: "%Y-%m-%d" }}</time>
+          {% for tag in post.tags %}<span>{{ tag }}</span>{% endfor %}
         </div>
-      </div>
-
-      <p class="profile__bio">Ghi chép về web security, CTF và mấy thứ lặt vặt gặp trên đường.</p>
-
-      <p class="profile__label">Bài viết</p>
-      <ul class="rail-list">
-        <li><a href="./posts/webhacking-pro.html">webhacking.kr&nbsp;/&nbsp;PRO</a></li>
-        <li><a href="./posts/webhacking-dom-xss.html">root-me.org&nbsp;/&nbsp;XSS — DOM base eval</a></li>
-      </ul>
-
-      <p class="profile__label">Nơi khác</p>
-      <div class="rail-social">
-        <a class="chip" href="https://github.com/tu3n4nh" target="_blank" rel="noopener">GitHub</a>
-        <a class="chip" href="./about.html">About</a>
-      </div>
-    </aside>
-
-    <div>
-
-      <section class="card">
-        <div class="page-head">
-          <p class="eyebrow">~/home</p>
-          <h1>From KCSC with luv</h1>
-        </div>
-        <p>
-          Chào bạn, mình là <strong>tu3n4nh</strong>. Đây là chỗ mình viết lại những challenge đã làm,
-          những lỗi đã gặp và cách khai thác chúng — chủ yếu là web security và CTF.
-        </p>
-        <p>
-          Nếu bạn tìm thấy ở đây một payload dùng được, thì mục đích của blog đã đạt rồi.
-        </p>
-      </section>
-
-      <section class="card">
-        <div class="page-head">
-          <p class="eyebrow">~/posts</p>
-          <h1 style="font-size:1.35rem;margin:0;">Bài viết</h1>
-        </div>
-
-        <ul class="post-list">
-          <li>
-            <a class="post-item" href="./posts/webhacking-pro.html">
-              <h2 class="post-item__title" style="border:0;padding:0;margin:0 0 .3rem;font-size:1.05rem;">webhacking.kr — PRO</h2>
-              <p class="post-item__excerpt">RPO trên nginx để ghi đè một response JSON trả về từ <code>api.php/search</code>, và cách bypass filter thẻ <code>&lt;</code> bằng url-encode.</p>
-              <div class="meta">
-                <time datetime="2024-03-18">2024-03-18</time>
-                <span>writeup</span>
-                <span>web</span>
-                <span>rpo</span>
-                <span>xss</span>
-              </div>
-            </a>
-          </li>
-          <li>
-            <a class="post-item" href="./posts/webhacking-dom-xss.html">
-              <h2 class="post-item__title" style="border:0;padding:0;margin:0 0 .3rem;font-size:1.05rem;">root-me.org — XSS (DOM base eval)</h2>
-              <p class="post-item__excerpt">Ghi chú ngắn về một sink <code>eval()</code> ăn thẳng vào fragment của URL, và cách lấy lại quyền điều khiển luồng thực thi.</p>
-              <div class="meta">
-                <time datetime="2024-02-11">2024-02-11</time>
-                <span>writeup</span>
-                <span>xss</span>
-                <span>dom</span>
-              </div>
-            </a>
-          </li>
-        </ul>
-      </section>
-
-    </div>
-
-  </main>
-
-  <footer class="footer">
-    <p>tu3n4nh · <kbd>From KCSC with luv</kbd></p>
-  </footer>
-
-</body>
-
-</html>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>

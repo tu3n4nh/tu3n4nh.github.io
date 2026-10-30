@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% include head.html %}
+  <link rel="stylesheet" href="/assets/css/style.css?v=3">
+</head>
+
+<body>
+
+  {% include topbar.html %}
+
+  <main class="shell{% if page.single %} shell--single{% endif %}">
+    {% unless page.single %}
+      <aside class="profile">
+        {% include profile.html toc=layout.toc %}
+      </aside>
+    {% endunless %}
+
+    <div>
+      {{ content }}
+    </div>
+  </main>
+
+  {% include footer.html %}
+
+</body>
+
+</html>

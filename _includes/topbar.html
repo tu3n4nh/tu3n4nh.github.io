@@ -1,0 +1,10 @@
+<header class="topbar">
+  <div class="topbar__inner">
+    <a class="brand" href="/index.html">tu3n4nh<span>_</span></a>
+    <nav class="nav" aria-label="Điều hướng chính">
+      <a href="/index.html"{% if page.url == "/index.html" or page.url == "/" %} aria-current="page"{% endif %}>Blog</a>
+      <a href="/about.html"{% if page.url == "/about.html" %} aria-current="page"{% endif %}>About</a>
+      <a href="https://github.com/tu3n4nh" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>

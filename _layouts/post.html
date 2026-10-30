@@ -1,0 +1,40 @@
+---
+layout: default
+toc: true
+---
+<article class="card">
+
+  <div class="page-head">
+    <p class="eyebrow">~/posts/{{ page.slug }}</p>
+    <h1>{{ page.title }}</h1>
+    <div class="meta">
+      <time datetime="{{ page.date | date_to_xmlschema }}">{{ page.date | date: "%Y-%m-%d" }}</time>
+      {% for tag in page.tags %}<span>{{ tag }}</span>{% endfor %}
+    </div>
+  </div>
+
+  {{ content }}
+
+  <hr>
+
+  <p><a href="/index.html">← về trang chủ</a></p>
+
+</article>
+
+<script>
+  (function () {
+    var toc = document.getElementById('toc');
+    if (!toc) return;
+    var headings = document.querySelectorAll('article h2');
+    headings.forEach(function (h) {
+      if (!h.id) return;
+      var li = document.createElement('li');
+      var a = document.createElement('a');
+      a.href = '#' + h.id;
+      a.textContent = h.textContent;
+      li.appendChild(a);
+      toc.appendChild(li);
+    });
+    if (!headings.length) toc.parentNode.removeChild(toc.previousElementSibling) || toc.remove();
+  })();
+</script>

@@ -1,0 +1,27 @@
+<div class="profile__head">
+  <img class="avatar" src="/img/avatar.jpg" width="52" height="52" alt="avatar của tu3n4nh">
+  <div>
+    <a class="profile__name" href="/index.html">tu3n4nh</a>
+    <p class="profile__tag">{{ site.tagline }}</p>
+  </div>
+</div>
+
+<p class="profile__bio">Ghi chép về web security, CTF và mấy thứ lặt vặt gặp trên đường.</p>
+
+<p class="profile__label">Bài viết</p>
+<ul class="rail-list">
+  {% for post in site.posts %}
+  <li><a href="{{ post.url }}">{{ post.title }}</a></li>
+  {% endfor %}
+</ul>
+
+{% if include.toc %}
+<p class="profile__label">Trong bài</p>
+<ul class="rail-list" id="toc"></ul>
+{% endif %}
+
+<p class="profile__label">Nơi khác</p>
+<div class="rail-social">
+  <a class="chip" href="https://github.com/tu3n4nh" target="_blank" rel="noopener">GitHub</a>
+  <a class="chip" href="/about.html">About</a>
+</div>

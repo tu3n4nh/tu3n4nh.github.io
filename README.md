@@ -1,21 +1,46 @@
 # tu3n4nh.github.io
 
-Blog cá nhân — web security, CTF writeups.
+Blog cá nhân — web security, CTF writeups. Dựng bằng Jekyll, GitHub Pages build sẵn.
 
-Trang tĩnh thuần HTML/CSS, không build step. Nền là `img/bg.gif`, giữ lại từ bản `my-blog` cũ.
+Nền là `img/bg.gif`, giữ lại từ bản `my-blog` cũ.
+
+## Viết bài mới
+
+Tạo file `_posts/YYYY-MM-DD-ten-bai.md`:
+
+```markdown
+---
+title: "Tên bài"
+date: 2024-05-01
+description: Một câu mô tả ngắn, dùng cho danh sách bài và meta description.
+tags: [writeup, web, xss]
+---
+
+Nội dung viết bằng Markdown từ đây.
+```
+
+Ảnh để trong `img/posts/<ten-bai>/` và chèn bằng `![mô tả](/img/posts/<ten-bai>/anh.png)`.
+
+Front matter là bắt buộc — `title`, `date`, `description`, `tags`. Không cần sửa `index.html`,
+danh sách bài và sidebar tự lấy từ `site.posts`.
 
 ## Cấu trúc
 
 ```
-index.html               trang chủ + danh sách bài
-posts/*.html             từng bài viết
-about.html               404.html
-assets/css/style.css     toàn bộ style
-img/bg.gif img/avatar.jpg
+_config.yml                cấu hình Jekyll
+_layouts/default.html      khung trang (topbar, sidebar, footer)
+_layouts/post.html         layout bài viết + mục lục tự sinh
+_layouts/page.html         layout trang tĩnh
+_includes/                 head, topbar, profile, footer
+_posts/*.md                bài viết
+index.html about.html 404.html
+assets/css/style.css       toàn bộ style
 ```
 
-## Thêm bài mới
+URL bài viết là `/posts/<ten-file-khong-ngay>.html`.
 
-1. Copy một file trong `posts/` thành `posts/ten-bai.html`.
-2. Viết nội dung, sửa `<title>`, `.eyebrow`, `.meta`, mục lục trong `rail-list`.
-3. Thêm một `<li>` vào `.post-list` trong `index.html` và một dòng vào `rail-list` ở sidebar.
+## Build thử ở máy
+
+```
+docker run --rm -v "$PWD":/srv/jekyll -w /srv/jekyll jekyll/jekyll:4 jekyll serve
+```
