@@ -35,6 +35,6 @@ toc: true
       li.appendChild(a);
       toc.appendChild(li);
     });
-    if (!headings.length) toc.parentNode.removeChild(toc.previousElementSibling) || toc.remove();
+    if (!headings.length) toc.closest('.toc-block').remove();
   })();
 </script>

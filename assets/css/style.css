@@ -275,6 +275,34 @@ figcaption {
 
 hr { border: 0; border-top: 1px dashed var(--line); margin: 2rem 0; }
 
+table {
+  display: block;
+  overflow-x: auto;
+  width: 100%;
+  max-width: 100%;
+  min-width: 100%;
+  border-collapse: collapse;
+  margin: 1.25rem 0;
+  font-size: .86rem;
+  line-height: 1.5;
+}
+
+thead { background: var(--paper-2); }
+
+th, td {
+  border: 1px solid var(--line);
+  padding: .5rem .7rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+th { font-weight: 650; color: var(--ink); white-space: nowrap; }
+
+tbody tr:nth-child(even) { background: #fbfcfd; }
+
+td code { white-space: nowrap; }
+
+
 blockquote {
   margin: 1.25rem 0;
   padding: .75rem 1rem;
@@ -342,4 +370,5 @@ blockquote p:last-child { margin-bottom: 0; }
   .profile { position: static; }
   .card { padding: 1.5rem 1.25rem; }
   body { background-attachment: scroll; }
+  .toc-block { display: none; }
 }

@@ -30,3 +30,5 @@ exclude:
   - README.md
   - Gemfile
   - Gemfile.lock
+
+future: true
