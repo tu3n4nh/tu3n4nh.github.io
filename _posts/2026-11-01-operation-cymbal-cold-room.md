@@ -1,7 +1,7 @@
 ---
 title: "Operation Cymbal: Cold Room"
 date: 2026-11-01
-description: "Writeup trọn bộ ba scenario của Operation Cymbal: Cold Room — socGholish, lạm dụng LLM trong pipeline, và những cái bẫy khi truy vết trên Google SecOps."
+description: "Writeup trọn bộ ba scenario của Operation Cymbal: Cold Room — socGholish, lạm dụng LLM trong pipeline, và một vụ đánh cắp danh tính cloud qua OAuth."
 tags: [writeup, soc, dfir, threat-hunting, ai-misuse]
 permalink: /posts/operation-cymbal-cold-room.html
 ---
@@ -13,7 +13,7 @@ writeup theo đúng thứ tự mình đã giải, gồm cả những chỗ bị 
 | --- | --- | --- | --- | --- | --- |
 | 1 | Deceptive Click | Investigation | 675 | very easy | 6 |
 | 2 | Rogue Synthesis | AI Misuse | 700 | medium | 6 |
-| 3 | *(đang cập nhật)* | Threat Hunting | — | — | 6 |
+| 3 | OAuth Heist | Threat Hunting | 700 | easy | 6 |
 
 Kết quả cuối: 3/3 scenario, 18/18 flag, hạng 2075 với đội một người.
 
@@ -471,7 +471,247 @@ Sysmon ghi Event 11 cả khi tạo file mới lẫn khi ghi đè file đã có. 
 | Mọi event trên một host | `principal.hostname = /CYM-CI-RUNNER-01/ nocase` |
 | Ghi file .ps1 | `target.file.full_path = /\.ps1$/ nocase` |
 
-## Scenario 3
+## Scenario 3 — OAuth Heist
 
-Phần này sẽ được bổ sung sau khi mình viết lại scenario thứ ba.
+### Tổng quan
+
+Nhân viên `elena.rostova` nhập mật khẩu vào một trang SSO giả. Attacker dùng mật khẩu đó đăng nhập Okta, đăng ký thiết bị MFA của mình, vào Google Workspace qua proxy, rồi lợi dụng app OAuth **ToogleBox Recall** để xóa vĩnh viễn email cảnh báo bảo mật. Tiếp theo attacker tìm và tải trên Drive một tài liệu chứa thông tin service account, dùng `svc_dbadmin` từ máy của Elena để vào DB server, dump database, nén lại và đẩy ra ngoài.
+
+Đề bài: scenario "OAuth Heist" (Threat Hunting, easy, 700 điểm) trong sự kiện Operation Cymbal: Cold Room. Công cụ: Google SecOps (Emerging Threats, SIEM Search, Curated Detections) và Google Threat Intelligence.
+
+| # | Câu hỏi | Đáp án | Nguồn log chính |
+| --- | --- | --- | --- |
+| 1 | Domain phishing nhận credential qua HTTP POST | `sso-cymbal-portal.com` | Zscaler web proxy |
+| 2 | Subject của email cảnh báo MFA bị xóa vĩnh viễn đầu tiên | `Okta: A new MFA factor was added` | Workspace / email log (`EMAIL_TRANSACTION`) |
+| 3 | Tài liệu nội bộ bị tải về | `Cymbal_Q3_Database_Architecture_and_Service_Accounts.pdf` | Workspace Drive (`item_download`) |
+| 4 | Service account dùng để vào DB server | `svc_dbadmin` | Security 4624 trên CYM-DB-01 |
+| 5 | File dump database thô trước khi nén | `cymbal_cust_q3.bak` | Sysmon 1 trên CYM-DB-01 (`sqlcmd`) |
+| 6 | URL exfiltration đầy đủ | *(cần điền URL đã nộp)* | Command line PowerShell trên CYM-DB-01 |
+
+> **Lưu ý về thời gian:** cột Summary trên SecOps hiển thị theo múi giờ trình duyệt (UTC+1). `metadata.event_timestamp` và raw log dùng UTC. Ví dụ: Summary ghi `20:34:01`, còn `event_timestamp` là `19:34:01Z`. Writeup này dùng **UTC**.
+
+#### Liên hệ với Deceptive Click
+
+Scenario này là **phần đầu còn thiếu** của Deceptive Click. Ở Deceptive Click, mình thấy `svc_dbadmin` đăng nhập CYM-DB-01 từ `CYM-DATA-WS-007` (10.240.12.65) nhưng không biết attacker vào máy đó bằng cách nào. OAuth Heist trả lời câu hỏi này: WS-007 là máy của `elena.rostova`, và mật khẩu `svc_dbadmin` đến từ tài liệu bị tải ở flag 3. Vì vậy flag 4 và 5 trùng với những gì đã thấy ở Deceptive Click.
+
+#### Kill chain
+
+```
+[Cloud identity · elena.rostova@cymbal-investments.com]
+
+ 19:20:06  USER_LOGIN từ 10.240.12.65 (CYM-DATA-WS-007): Elena làm việc bình thường
+ 19:33:06  GET  https://sso-cymbal-portal.com/...      (mở trang SSO giả)
+ 19:34:01  POST https://sso-cymbal-portal.com/api/v1/auth/token  (gửi mật khẩu)            · Flag 1
+           IP server phishing: 149.50.97.174 (IOC của Campaign 26.003)
+ 19:39:56  Okta USER_LOGIN từ 157.131.172.74          (attacker đăng nhập)
+ 19:41:16  Okta user.mfa.factor.activate              (attacker đăng ký MFA của họ)
+ 19:47:11  Workspace saml_sso_login từ 23.234.119.110 (proxy của attacker)
+ 19:53:06  USER_RESOURCE_ACCESS: ToogleBox Recall     (OAuth app được cấp quyền vào hộp thư)
+           -> xóa vĩnh viễn "Okta: A new MFA factor was added"                            · Flag 2
+              và "Security alert: New macOS device registered to your account"
+ 20:19:56  Drive search từ 23.234.119.110
+ 20:23:36  Drive item_download: Cymbal_Q3_Database_Architecture_and_Service_Accounts.pdf   · Flag 3
+                 |
+                 |  credential svc_dbadmin trong tài liệu
+                 v
+[On-prem]
+ 20:47:11  4624: svc_dbadmin -> CYM-DB-01 từ CYM-DATA-WS-007 (LogonType 3, NTLM)          · Flag 4
+ 20:47:26  wsmprovhost.exe (WinRM) dưới svc_dbadmin
+ 20:49:56  sqlcmd BACKUP DATABASE [CymbalWealthMaster] -> cymbal_cust_q3.bak               · Flag 5
+ 21:13:26  zstd nén -> C:\ProgramData\cymbal_q3_exfil.tar.zst
+ 21:49:46  powershell.exe -> 142.11.200.188:8888 (upload archive)                         · Flag 6
+```
+
+Giờ của các event on-prem lấy từ writeup Deceptive Click (đã là UTC). Logon `svc_dbadmin` lúc 20:47:11 xảy ra 24 phút sau khi tài liệu bị tải (20:23:36), khớp với việc attacker dùng credential trong tài liệu.
+
+Mẹo nộp flag: nhập đúng giá trị theo format, giữ nguyên chữ hoa, chữ thường và dấu câu.
+
+### Bước 0 — Tìm đúng campaign trong Emerging Threats
+
+**Cách làm**
+
+1. Vào **Emerging Threats**, search `ShinyHunters`.
+2. Report **"UNC6240 (aka ShinyHunters): Historical Activities and TTPs"** là report tổng quan: `Associated Rules: No Rules`, `No IOC Matches`. Không dùng được, bỏ qua.
+3. Như hint của đề, bỏ qua các report chỉ về một ứng dụng (Oracle PeopleSoft, Snowflake). Mở **"Campaign 26.003: Threat Actor Targeting Multiple Cloud Platforms in ShinyHunters-Branded Data Theft Extortion Operations"**.
+4. Mục IOCs có **1 IOC Match**:
+
+| IOC | Loại | Khớp với |
+| --- | --- | --- |
+| `149.50.97.174` | IP | `Cymbal > 10.240.12.65` |
+
+Vậy có 2 pivot: IP của attacker `149.50.97.174` và máy nội bộ `10.240.12.65` (sau này xác định là `CYM-DATA-WS-007`, máy của Elena).
+
+**Bài học:** chọn đúng loại tài liệu. Report "Historical/TTPs" để đọc hiểu, còn **Campaign** có IOC và rule gắn với dữ liệu của bạn. Mục "IOC Match" là lối tắt từ threat intel vào log.
+
+**Thực tế:** Emerging Threats tự đối chiếu IOC của GTI với log 365 ngày. Một IOC match là điểm bắt đầu hunt tốt hơn mọi query tự viết, nhưng vẫn phải xác minh bằng event thật vì IOC (nhất là IP) có thể dùng chung hạ tầng.
+
+### Flag 1 — Domain phishing
+
+**Đáp án:** `sso-cymbal-portal.com`
+
+**Cách làm**
+
+1. Tìm mọi event dính tới IP trong IOC:
+   ```
+   principal.ip = "149.50.97.174" OR target.ip = "149.50.97.174"
+   ```
+2. Kết quả: 2 event Zscaler, user `elena.rostova`, đích `sso-cymbal-portal.com`:
+
+| Trường | Giá trị |
+| --- | --- |
+| `principal.user.userid` | `elena.rostova` |
+| `target.hostname` | `sso-cymbal-portal.com` |
+| `target.url` | `https://sso-cymbal-portal.com/api/v1/auth/token` |
+| `network.http.method` | GET (19:33:06) và POST (19:34:01) |
+| `network.sent_bytes` | 2400 |
+| `additional.fields["urlclass"]` | Uncategorized |
+
+**Giải thích:** GET là lúc mở trang giả, POST tới `/api/v1/auth/token` là lúc gửi tên đăng nhập và mật khẩu. Domain ghép `sso-` + tên công ty + `-portal` để trông như trang đăng nhập nội bộ. `Uncategorized` cho thấy domain mới, chưa được proxy phân loại.
+
+**Bài học:** câu hỏi nói "HTTP POST", nên phải kiểm tra `network.http.method`. Đề cũng chỉ ra luôn: nạn nhân là user trong event này, và mọi bước sau đều pivot từ user đó.
+
+**Thực tế:** chặn domain trên proxy, tìm toàn công ty xem còn ai truy cập, reset mật khẩu và **thu hồi mọi session/token** của nạn nhân (đổi mật khẩu thôi không đủ nếu attacker đã có token hoặc thiết bị MFA). Dùng MFA chống phishing (FIDO2/passkey) để mật khẩu bị lộ không dùng được trên domain giả.
+
+### Flag 2 — Email cảnh báo MFA bị xóa vĩnh viễn
+
+**Đáp án:** `Okta: A new MFA factor was added`
+
+**Cách làm**
+
+1. Lấy toàn bộ hoạt động của nạn nhân trên mọi nguồn log (user có thể ở dạng `elena.rostova` hoặc email đầy đủ):
+   ```
+   principal.user.userid = /elena\.rostova/ nocase
+   OR principal.user.email_addresses = /elena\.rostova/ nocase
+   OR target.user.email_addresses = /elena\.rostova/ nocase
+   ```
+2. Kết quả có 14 event. Các event cloud quan trọng:
+
+| Giờ UTC | Event | IP |
+| --- | --- | --- |
+| 19:39:56 | Okta `USER_LOGIN` | `157.131.172.74` |
+| 19:41:16 | Okta `user.mfa.factor.activate` | `157.131.172.74` |
+| 19:47:11 | Workspace `saml_sso_login` (idp: Okta) | `23.234.119.110` |
+| 19:53:06 | `USER_RESOURCE_ACCESS`: **ToogleBox Recall** | |
+| (ingest 22:02) | `EMAIL_TRANSACTION`: `Okta: A new MFA factor was added` | |
+| (ingest 22:02) | `EMAIL_TRANSACTION`: `Security alert: New macOS device registered to your account` | |
+
+3. Có 2 email cảnh báo. Đề hỏi email "alerted on **multi-factor authentication changes**", nên chọn email về MFA. Email về thiết bị macOS là bẫy.
+
+**Giải thích:** ToogleBox Recall là một app Google Workspace có thật, dùng để thu hồi/xóa email trên toàn tổ chức. Sau khi được cấp quyền OAuth, nó có thể xóa vĩnh viễn thư trong hộp thư nạn nhân. Attacker dùng nó để Elena không bao giờ thấy thông báo "MFA mới được thêm", tức là che giấu cơ chế persistence (thiết bị MFA của attacker).
+
+Hai email có cùng giờ hiển thị vì đó là giờ ingest. Để biết thứ tự xóa thật, cần đọc timestamp trong raw log.
+
+**Bài học:** đọc kỹ từ khóa trong câu hỏi ("MFA changes", "first"). Khi có nhiều ứng viên giống nhau, từ khóa đó là thứ phân biệt.
+
+**Thực tế:** OAuth app là cách persistence không bị ảnh hưởng khi đổi mật khẩu. Cần rà soát và thu hồi OAuth grant của nạn nhân, giới hạn app bên thứ ba bằng allowlist (Workspace: API Controls → App access control), và cảnh báo khi một app mới được cấp scope Gmail rộng (`https://mail.google.com/`). Email cảnh báo bảo mật nên gửi kèm tới SOC, không chỉ tới chính người dùng, vì attacker có thể xóa thư trong hộp thư nạn nhân.
+
+### Flag 3 — Tài liệu bị tải về
+
+**Đáp án:** `Cymbal_Q3_Database_Architecture_and_Service_Accounts.pdf`
+
+**Cách làm**
+
+1. Trong cùng kết quả của flag 2, có hai event Drive từ IP proxy `23.234.119.110`:
+   - 20:19:56: `search` (attacker tìm tài liệu)
+   - 20:23:36: `item_download`
+2. Mở `item_download`, đọc Raw Log (`events[].parameters`, tham số `doc_title`) hoặc trường `target.resource.name`.
+
+**Giải thích:** đề nói hoạt động diễn ra "from the attacker's proxy infrastructure". Lọc theo IP `23.234.119.110` thay vì IP văn phòng sẽ tách được hoạt động của attacker khỏi hoạt động thật của Elena. Tên file đã cho biết nội dung: kiến trúc database và **service account**, chính là chìa khóa cho flag 4.
+
+**Bài học:** trên cloud, một user có thể có hai luồng hoạt động song song (người thật và attacker). Tách chúng bằng IP, user agent, ASN hoặc vị trí địa lý.
+
+**Thực tế:** tài liệu chứa mật khẩu không nên nằm trên Drive. Dùng vault (Secret Manager, CyberArk, ...), bật DLP để phát hiện credential trong tài liệu, và cảnh báo khi có `search` + `download` từ IP lạ ngay sau một lần đăng nhập mới.
+
+### Flag 4 — Service account vào DB server
+
+**Đáp án:** `svc_dbadmin`
+
+**Cách làm**
+
+1. Tìm logon từ máy của Elena vào server khác:
+   ```
+   metadata.product_event_type = "4624"
+   AND (principal.ip = "10.240.12.65" OR principal.hostname = /CYM-DATA-WS-007/ nocase)
+   ```
+2. Kết quả: `svc_dbadmin` đăng nhập **CYM-DB-01** từ **CYM-DATA-WS-007** (10.240.12.65), LogonType 3, NTLM. 15 giây sau có `wsmprovhost.exe` chạy dưới `svc_dbadmin` (PowerShell Remoting).
+
+**Giải thích:** `10.240.12.65` là máy đã khớp IOC ở Bước 0 và cũng là IP của lần đăng nhập bình thường của Elena (19:20:06), nên đây là máy trạm của cô ấy. Sysmon trên máy này cũng ghi `Ssms.exe` (SQL Server Management Studio) được mở dưới tài khoản elena.rostova.
+
+**Bài học:** nối cloud với on-prem bằng IP nội bộ và tên user. Một service account đăng nhập từ máy trạm của nhân viên văn phòng là bất thường.
+
+**Thực tế:** đổi mật khẩu `svc_dbadmin` ngay (hoặc chuyển sang gMSA), chặn service account đăng nhập tương tác/qua mạng từ máy trạm, chỉ cho phép WinRM tới DB server từ jump host quản trị.
+
+### Flag 5 — File dump database thô
+
+**Đáp án:** `cymbal_cust_q3.bak`
+
+**Cách làm**
+
+1. Xem các process do `svc_dbadmin` chạy trên DB server:
+   ```
+   principal.hostname = /CYM-DB-01/ nocase AND metadata.event_type = "PROCESS_LAUNCH"
+   AND principal.user.userid = /svc_dbadmin/ nocase
+   ```
+2. Hai lệnh liên tiếp:
+   ```
+   sqlcmd ... BACKUP DATABASE [CymbalWealthMaster] TO DISK='C:\ProgramData\MSSQL\Backup\cymbal_cust_q3.bak'
+   zstd ... -o C:\ProgramData\cymbal_q3_exfil.tar.zst C:\ProgramData\MSSQL\Backup\cymbal_cust_q3.bak
+   ```
+
+**Giải thích:** đề hỏi file **thô** "prior to compressing", tức là output của `sqlcmd` (`.bak`), không phải output của `zstd` (`.tar.zst`). Input của lệnh nén chính là file dump.
+
+**Bài học:** khi đề hỏi về "trước" hoặc "sau" một bước, tìm cả hai lệnh rồi so input/output. Đây cũng là chỗ dễ nộp nhầm nhất (đã gặp ở Deceptive Click).
+
+**Thực tế:** `BACKUP DATABASE` tới thư mục lạ, do account không phải job backup chạy, ngoài giờ backup định kỳ, là tín hiệu mạnh. Theo dõi `sqlcmd`/`bcp` được khởi chạy từ `wsmprovhost.exe` và các công cụ nén (`zstd`, `7z`, `rar`) trên DB server.
+
+### Flag 6 — URL exfiltration
+
+**Đáp án:** *(cần điền URL đã nộp — dạng `http://142.11.200.188:8888/<path>/<file>`)*
+
+**Cách làm**
+
+1. Ở Deceptive Click đã thấy `powershell.exe` trên CYM-DB-01 kết nối tới `142.11.200.188:8888` lúc 21:49:46 UTC. Sysmon Event 3 chỉ có IP và port, không có path, nên cần tìm command line:
+   ```
+   principal.hostname = /CYM-DB-01/ nocase AND target.process.command_line = /142\.11\.200\.188/
+   ```
+2. Nếu không ra, tìm lệnh upload:
+   ```
+   principal.hostname = /CYM-DB-01/ nocase
+   AND target.process.command_line = /Invoke-WebRequest|Invoke-RestMethod|curl|UploadFile|InFile/ nocase
+   ```
+3. Hoặc xem PowerShell Script Block (`metadata.product_event_type = "4104"`), log proxy (`target.url = /142\.11\.200\.188/`), hay dùng Raw Log Search với `142.11.200.188:8888`.
+4. Chép **nguyên văn** URL từ log, giữ cả `http://`, port, path và tên file. Không tự ghép từ IP và tên file.
+
+**Bài học:** network log (Sysmon 3, firewall) cho biết **đi đâu**, còn process/script log cho biết **gửi gì và tới path nào**. Cần cả hai để có URL đầy đủ.
+
+**Thực tế:** chặn egress từ server tới Internet theo mặc định (DB server hầu như không cần ra ngoài), cảnh báo khi PowerShell tạo kết nối ra IP công cộng trên port lạ, bật PowerShell Script Block Logging để luôn có nội dung lệnh.
+
+### Bài học tổng hợp
+
+**Những điểm cần nhớ**
+
+1. **Đi từ threat intel.** Campaign có IOC match cho ngay IP attacker và máy nội bộ. Report tổng quan về TTPs thì không.
+2. **Tách hai luồng hoạt động của cùng một user** bằng IP: văn phòng `10.240.12.65`, đăng nhập Okta `157.131.172.74`, proxy Workspace `23.234.119.110`, server phishing `149.50.97.174`.
+3. **Đọc kỹ từ khóa câu hỏi:** "POST", "MFA changes", "first", "raw ... prior to compressing", "full URL".
+4. **Giờ hiển thị khác giờ UTC.** Luôn so `event_timestamp` hoặc raw log.
+5. **Persistence trên cloud không nằm ở máy:** thiết bị MFA của attacker và OAuth grant vẫn còn hiệu lực sau khi đổi mật khẩu. Phải thu hồi riêng từng thứ.
+
+**Quy trình chung cho bài Threat Hunting trên SecOps**
+
+1. Emerging Threats → chọn đúng Campaign → lấy IOC match.
+2. Search IOC trong SIEM → ra user/host đầu tiên.
+3. Lấy toàn bộ timeline của user trên mọi nguồn log (proxy, IdP, SaaS, EDR).
+4. Phân loại theo IP để biết bước nào là của attacker.
+5. Nối cloud xuống on-prem qua IP/host nội bộ và credential bị lộ, rồi đi tiếp theo kill chain.
+
+**Cheat sheet UDM query**
+
+| Mục đích | Query |
+| --- | --- |
+| Mọi event dính tới một IP | `principal.ip = "149.50.97.174" OR target.ip = "149.50.97.174"` |
+| Timeline của user (cả email) | `principal.user.userid = /elena\.rostova/ nocase OR principal.user.email_addresses = /elena\.rostova/ nocase` |
+| Hoạt động từ IP proxy của attacker | `principal.ip = "23.234.119.110"` |
+| Logon từ một máy trạm | `metadata.product_event_type = "4624" AND principal.ip = "10.240.12.65"` |
+| Process của service account | `metadata.event_type = "PROCESS_LAUNCH" AND principal.user.userid = /svc_dbadmin/ nocase` |
+| Command line chứa IP đích | `target.process.command_line = /142\.11\.200\.188/` |
 
